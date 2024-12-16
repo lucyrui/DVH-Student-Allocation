@@ -1,0 +1,70 @@
+import streamlit as st
+import pandas as pd
+import datetime
+import io
+
+# --- APP TITLE ---
+st.title("Student Roster Generator")
+st.subheader("Automatically generate student allocation forms")
+
+# --- INPUT SECTION ---
+# Sidebar inputs for form details
+st.sidebar.header("Roster Configuration")
+student_name = st.sidebar.text_input("Student Name", "Agatha Ovonlyen-Jones")
+
+# Weeks and Dates Input
+num_weeks = st.sidebar.number_input("Number of Weeks", min_value=1, max_value=10, value=4)
+start_date = st.sidebar.date_input("Start Date", datetime.date.today())
+
+# Assessor Names
+assessor_name = st.sidebar.text_input("Practice Assessor Name", "Paul Puttee")
+supervisor_name = st.sidebar.text_input("Supervisor Name", "Lili Starvar")
+
+# Roster Pattern (Sick leave, LD, etc.)
+roles = ["E - 8-6", "LD - 8-7", "SL - Sick Leave", ""]  # Dropdown options
+
+# Table generator based on weeks and days
+def generate_roster(start_date, num_weeks):
+    days = ["M", "T", "W", "T", "F", "S", "S"]
+    dates = []
+    current_date = start_date
+    
+    for week in range(num_weeks):
+        for day in days:
+            dates.append((f"Week {week+1}", current_date.strftime("%d/%m/%Y")))
+            current_date += datetime.timedelta(days=1)
+            
+    return pd.DataFrame(dates, columns=["Week", "Date"])
+
+roster_df = generate_roster(start_date, num_weeks)
+
+# --- USER INPUT FOR ROSTER ---
+st.write("### Input Roster Details")
+roster_table = []
+for index, row in roster_df.iterrows():
+    role = st.selectbox(f"Role for {row['Date']} ({row['Week']})", roles, key=index)
+    roster_table.append([row["Week"], row["Date"], role])
+
+# Final table with inputs
+final_roster = pd.DataFrame(roster_table, columns=["Week", "Date", "Role"])
+
+# --- DISPLAY ROSTER ---
+st.write("### Generated Roster")
+st.dataframe(final_roster)
+
+# --- EXPORT TO EXCEL ---
+def to_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name="Roster", index=False)
+    processed_data = output.getvalue()
+    return processed_data
+
+excel_data = to_excel(final_roster)
+
+st.download_button(
+    label="Download Roster as Excel",
+    data=excel_data,
+    file_name="student_roster.xlsx",
+    mime="application/vnd.ms-excel"
+)
